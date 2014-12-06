@@ -1,0 +1,202 @@
+\batchmode
+\makeatletter
+\makeatother
+\documentclass[english]{article}
+\graphicspath{ {pictures/} }
+\usepackage{graphicx, color}
+\usepackage{placeins}
+%% maxwidth is the original width if it is less than linewidth
+%% otherwise use linewidth (to make sure the graphics do not exceed the margin)
+\makeatletter
+\def\maxwidth{ %
+  \ifdim\Gin@nat@width>\linewidth
+    \linewidth
+  \else
+    \Gin@nat@width
+  \fi
+}
+\makeatother
+\IfFileExists{upquote.sty}{\usepackage{upquote}}{}
+\definecolor{fgcolor}{rgb}{0.2, 0.2, 0.2}
+
+\usepackage{framed}
+\makeatletter
+\definecolor{shadecolor}{rgb}{.97, .97, .97}
+\definecolor{messagecolor}{rgb}{0, 0, 0}
+\definecolor{warningcolor}{rgb}{1, 0, 1}
+\definecolor{errorcolor}{rgb}{1, 0, 0}
+\usepackage{alltt}
+\usepackage[T1]{fontenc}
+\usepackage[latin9]{inputenc}
+\usepackage{geometry}
+\geometry{verbose,tmargin=1in,bmargin=1in,lmargin=1in,rmargin=1in}
+\usepackage{fancyhdr}
+\pagestyle{fancy}
+\setlength{\parskip}{\smallskipamount}
+\setlength{\parindent}{0pt}
+\usepackage{amsthm}
+\usepackage{amsmath}
+\usepackage{amsfonts}
+\makeatletter
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% LyX specific LaTeX commands.
+\providecommand{\LyX}{L\kern-.1667em\lower.25em\hbox{Y}\kern-.125emX\@}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% Textclass specific LaTeX commands.
+\numberwithin{equation}{section}
+\numberwithin{figure}{section}
+\@ifundefined{date}{}{\date{}}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% User specified LaTeX commands. 
+\makeatother
+\usepackage{babel}
+\usepackage{placeins}
+\usepackage[]{algorithm2e}
+\usepackage{hyperref}
+\usepackage[backend=bibtex]{biblatex}
+\bibliography{references}
+ 
+\begin{filecontents*}{references.bib}
+@Manual{escv,
+    title = {Estimation Stability with Cross Validation},
+    author = {Lim C., Yu B.},
+    year = {2013}
+  }
+@Manual{glmnet,
+    title = {hh},
+    author = {gg},
+    year = {2008}
+  }
+@Manual{AICc,
+    title = {Model Selection and Multimodel Inference: A Practical Information-Theoretic Approach},
+    author = {Burnham, K. P.; Anderson, D. R.},
+    year = {2002}
+  }
+\end{filecontents*}
+
+\begin{document}
+\title{Final Project - fMRI Data\\
+Stat 215A, Fall 2014}
+\author{Fanny Perraudeau}
+\maketitle
+
+\section{Introduction}
+Functional Magnetic Resonance Imaging (fMRI) is one of the tools used in neuroscience to decode brain activity. For this project, we looked at fMRI data provided by the Gallant Lab at UC Berkeley measuring activity in visual cortex. In an experiment, a subject is shown a series of randomly selected natural images and the fMRI response from his primary visual cortex is recorded. The fMRI response is recorded at the voxel level, where each voxel corresponds to a tiny volume of the visual cortex. For this project, we focused on two main goals. First, we predicted the voxel response to new images. Secondly, we interpreted the prediction models to understand how voxels respond to images.
+
+\section{Data}
+fMRI data were recorded from 20 voxels while a subject viewed 1,750 natural images. Each image is a 128 by 128 pixel gray scale image, which can be represented by a vector of length $128^2 = 16,384$. Through a Gabor wavelet transformation each image was reduced to a vector of 10,921 coefficients. The prediction performance of my best model will be evaluated by looking at correlation scores against a validation set of 120 images.
+
+\section{Predict the voxel response}
+By modeling each of the 20 voxel's response to the 1,750 images of the training set, I build models that can predict the response to new images. The power of these models is that the 120 images in the validation set are not part of the training set. To evaluate the performance of my best model I will predict responses of the voxels to totally new images.
+
+\subsection{Partition of the data}
+To predict the voxel response to new images, I used the training set provided for the project (with 1,750 images). The validation set with the 120 new images was not used for this part. As suggested in the tasks, the size of the data set is large so it is difficult to perform cross-validation on the entire training set. Thus, I divided the training set into two parts. 80\% of the training set was used to train the models while the remaining 20\% was used to check the performance of the models. See Figure\ref{dataset}.\\\\
+
+\begin{figure}
+\centering
+\includegraphics[scale=0.4]{dataset.png}
+\caption{Partition of the data}
+\label{dataset}
+\end{figure}
+
+\subsection{GLM with Ridge, Elastic Net and Lasso regularization}
+The training set was fitted to generalized linear models (GLM) with ridge, elastic net and Least Absolute Shrinkage and Selection Operator (LASSO) regularizations using Gaussian family models. Thus, for a response with only one voxel the objective function to minimize over $\beta$ was\\
+
+$$\frac{1}{2N} \sum_{i=1}^{N}\ (y_i - \beta_0 - x_i^T \beta)^2\  +\  \lambda\  [\  \frac{(1- \alpha)}{2} \| \beta \|_2^2 + \alpha \| \beta \|_1\ ] $$\\
+
+where $x_i \in \mathbb{R}^p$ with p = 10,921 the observations, $y_i \in \mathbb{R}$ the response,  N the size of the training set  (80\% of the 1,750 images), $\beta \in \mathbb{R}^p\ and\ \beta_0\ \in \mathbb{R}$. The elastic-net penalty is controlled by $\alpha$, and bridges the gap between lasso ($\alpha = 1$) and ridge ($\alpha = 0$). The tuning parameter $\lambda$ controls the overall strength of the penalty.\\
+
+As our response is not a vector but a 1,750 by 20 matrix, I fitted a multi-response linear regression with the objective function\\
+
+$$\frac{1}{2N} \sum_{i=1}^{N}\| (y_i - \beta_0 - \beta^T x_i) \|_F^2\  +\  \lambda\  [\  \frac{(1- \alpha)}{2} \| \beta \|_F^2 + \alpha \sum_{j=1}^{p}\| \beta_j \|_2\ ] $$\\
+
+where $\beta_j$ is the jth row of the p by K matrix $\beta$. I replaced the absolute penalty on each single coefficient by a group lasso penalty on each K-vector $\beta_j$ for a single predictor $x_j$. It is known that the ridge penalty shrinks the coefficients of correlated predictors towards each other while the LASSO tends to pick one of them and discard the others. The elastic-net penalty mixes these two. An $\alpha = 0.5$ tends to select the groups in or out together. The small elastic net parameters perform much like the ridge regularization whereas big elastic net parameters perform more like a LASSO regularization.\\
+
+
+The R function glmnet from the package glmnet\cite{glmnet} was used to fit the linear models with ridge ($\alpha = 0$), elastic net with $\alpha = (0.25,\  0.5,\  0.75)$ and LASSO ($\alpha = 1$) regularizations. The option family = "mgaussian" was used to fit multi- response linear regression for our 20 voxels at a time. 
+
+
+\subsection{Model selection criteria}
+To select the smoothing parameter in the five proposed models, four different selection criteria were used
+\begin{enumerate}
+\item Akaike Information Criterion corrected (AICc)
+\item Bayesian Information Criterion (BIC)
+\item Cross-Validation (CV)
+\item Estimation Stability with Cross-Validation (ESCV)
+\end{enumerate}
+Once the smoothing parameter was chosen for each criterion using the training set (80\% of the data set with 1,750 images), the model performance was checked on the validation set (the remaining 20\% of the data set). The model with the best performance on the validation set was considered as the best of the five models.
+
+\subsubsection{AICc}
+Akaike Information Criterion (AIC) is\\
+$$AIC = 2k - 2\ln(L)$$\\
+where k is the number of parameters in the model, and L is the maximized value of the likelihood function. AIC not only rewards goodness of fit, but also includes a penalty that is an increasing function of the number of estimated parameters. The penalty discourages overfitting that is very likely with our 10,921 initial parameters. It can tell nothing about the quality of the model in an absolute sense (if all the candidate models fit poorly, AIC will not give any warning of that), but can be used to compare different models. \\\\
+
+When the number of parameters if large compared to the number of samples, it is recommended to use the Akaike Information Criterion with a correction (AICc) instead of the AIC\cite{AICc}. AICc is\\
+$$AICc = AIC + \frac{2k (k + 1)}{n - k - 1}$$\\
+where k is the number of parameters and n is the sample size. Thus, AICc is AIC with a greater penalty for extra parameters because our data set has $n << k$. The best model chosen according to the AICc was the one with the minimum AICc value.
+
+\subsubsection{BIC}
+To penalize even more strongly the number of parameters, I also used the Bayesian Information Criterion (BIC)\\
+$$BIC = k[\ln(n) - ln(2\pi)] - 2\ln(L)$$\\
+where k is the number of parameters in the model, n is the sample size and L is the maximized value of the likelihood function. The idea behind BIC is the same as the one behind AICc but with a penalty term larger in BIC than in AICc.
+
+\subsubsection{Cross-Validation}
+To choose the smoothing parameter using Cross-validation (CV), I divided my training set (80\% of the data set with 1,750 images) into 10 folds. At each step, the models were fitted on nine folds with a set of 100 different values for the smoothing parameter $\lambda$. The range of the $\lambda$ tested was from 0 (unregularized solution) to $\lambda_{max}$ (the smallest $\lambda$ with all coefficients equal to zero). We will see in the section about ESCV why I chose to index the set of the smoothing parameters. The remaining fold not used to fit the models was used to check the performance of the models. As the performance indicator used by the Gallant lab is the correlation between the fitted values and the response values, I chose to use the correlation to measure the performance of my models on the validation sets. Once the ten steps were completed (in parallel using the R function foreach), the validation correlations were averaged over the steps and the voxels. For each of my five models, the smoothing parameters given the highest correlation between the fitted and the response values were chosen to be the best parameters for the models. Thus, for each of the five models, the best smoothing parameter was chosen. The steps of my algorithm are described below.\\\\
+
+Finally, the performance of the models was evaluated on the untouched validation set (20\% of the training set) using the correlation between the fitted and response values. Using CV as a model selection criteria, the best model was the one with the highest correlation.\\\\\\\\
+
+\textbf{Summary of my algorithm for CV}\\\\
+\begin{algorithm}[H]
+\For{$\alpha$ = 0 (ridge), 0.25, 0.5, 0.75, 1 (lasso)}{
+\For{k = 1, 2, ..., V = 10}{
+\For{$\lambda$ = $\lambda_{max}$, ..., 0}{
+  1) Train Model on 9 folds using R function glmnet\\
+  2) Predict the response for the remaining fold\\
+  3) Compute the correlation between the fitted and response values on this remaining fold\\
+}
+}
+4) Average the correlation over the k and the 20 voxels\\
+5) Choose the $\lambda$ with the highest correlation\\
+6) Compute the correlation for the untouched validation set with this $\lambda$\\
+}
+7) Choose the model with the highest correlation
+\end{algorithm}
+\bigskip
+The strength of CV is to be able to find good solutions with less coefficients than AICc or BIC. However, I realized that performing several times my CV algorithm, I got different solutions each time. It was confirmed by the paper of Bin Yu and Chinghway Lim on ESCV\cite{escv}, CV can lead to models that are unstable in high-dimensions, and consequently not suited for reliable interpretation.\\\\
+
+
+\subsubsection{Estimation Stability with Cross-Validation}
+The idea of the model selection criteria ESCV\cite{escv} was to be able to find stable solution for the smoothing parameter in high-dimensions data set. To do so the algorithm was nearly the same as the CV algorithm. The training set was divided into V folds. The models were fitted to V - 1 folds of the training set and the performance was checked on the remaining fold. The difference with the CV algorithm was that instead of checking the performance of the fitted model using correlation, the performance was evaluated using the ES metric defined in Bin Yu's paper\cite{escv}\\
+$$ ES[\lambda] = \frac{\widehat{Var}(\widehat{Y}[\lambda])}{\| \overline{\widehat{Y}}[\lambda] \|_2^2}$$
+
+with \\
+$$\widehat{Var}(\widehat{Y}[\lambda]) = \frac{1}{V} \sum_{k=1}^V \|\widehat{Y}[k; \lambda] - \overline{\widehat{Y}}[\lambda] \|_2^2\ \ \ \ \ \ \ \ and\ \ \ \ \ \ \ \overline{\widehat{Y}}[\lambda] = \frac{1}{V} \sum_{i=1}^V \widehat{Y}[i; \lambda]$$\\\\
+
+At each step, the same set of indexed lambda as for the CV was tested from $\lambda = 0$ to $\lambda_{max}$. It is important to keep the same indexation of $\lambda$ at each step of the ESCV algorithm because the L1-norm of the unregularized solution corresponding to the saturated fit can vary a lot depending on the folds selected. Because it was easiest to implement with the R glmnet package, I chose to represent the regularization parameter with $\lambda$ whereas the regularization parameter chosen in Bin Yu's paper\cite{escv} was $\tau = \| \widehat{\beta}(\lambda) \|_1$. I also implemented the ESCV algorithm for ridge and elastic net regularizations, not implemented in Bin Yu's paper. It seems to perform as well as for the LASSO regularization.
+ 
+ 
+\bigskip
+\textbf{Summary of my algorithm for ESCV}\\\\
+\begin{algorithm}[H]
+\For{$\alpha$ = 0 (ridge), 0.25, 0.5, 0.75, 1 (lasso)}{
+\For{k = 1, 2, ..., V = 10}{
+\For{$\lambda$ = $\lambda_{max}$, ..., 0}{
+  1) Train Model on 9 folds using R function glmnet\\
+  2) Predict the response for the remaining fold\\
+  3) Compute the ES metric on this remaining fold\\
+}
+}
+4) Average the ES metric over the k and the 20 voxels\\
+5) Compute the $\lambda$ with the smallest ES metric\\
+5 bis) Choose the highest $\lambda$ between $\lambda$ from CV and $\lambda$ from ESCV\\
+6) Compute the correlation for the untouched validation set with this $\lambda$\\
+}
+7) Choose the model with the highest correlation 
+\end{algorithm}
+\bigskip
+The main strength of the ESCV criterion is its stability. I run several times my ESCV algorithm and unlike the CV algorithm I found about the same smoothing parameter each time. The other strength of ESCV is that it can be computed at the same time as the CV algorithm because it uses the same folds and steps as the CV algorithm. Thus, it gave us two criteria for the computation cost of one.
+
+
+\section{How do voxels respond to images ?}
+
+
+\printbibliography
+\end{document}
+
