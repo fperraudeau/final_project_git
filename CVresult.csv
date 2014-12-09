@@ -1,0 +1,6 @@
+"Ridge","alpha.25","alpha.5","alpha.75","Lasso"
+"Lambda 1se",808.43,3.23,1.62,1.08,0.81
+"Mean CV Estimation Error",3.06,3.07,3.08,3.11,3.13
+"SD CV Estimation Error",0.6,0.59,0.59,0.59,0.59
+"Prediction Error",3.72,3.72,3.72,3.72,3.72
+"Non-zero coefficient",50,0,0,0,0

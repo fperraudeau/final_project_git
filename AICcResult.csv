@@ -1,0 +1,6 @@
+"Ridge","alpha.25","alpha.5","alpha.75","Lasso"
+"Lambda",9087.55,59745,219902.55,751711.99,2155425.39
+"Estimation Error",0.79,0.77,0.72,0.65,0.53
+"Prediction Error",0.82,0.81,0.81,0.81,0.84
+"Correlation Score",0.41,0.42,0.42,0.41,0.39
+"Non-zero coefficient",7.62,8.99,15.15,27.68,56.81

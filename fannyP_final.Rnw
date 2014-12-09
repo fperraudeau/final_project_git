@@ -76,11 +76,39 @@
 Stat 215A, Fall 2014}
 \author{Fanny Perraudeau}
 \maketitle
+<<eval=TRUE, echo=FALSE, message=FALSE>>=
+opts_chunk$set(fig.width=5, fig.height=3, fig.pos='h!', fig.align='center', echo=FALSE, message=FALSE, dev="png")
+
+# for bibliography
+Sys.setenv(TEXINPUTS=getwd(),
+           BIBINPUTS=getwd(),
+           BSTINPUTS=getwd())
+
+setwd("~/Documents/STAT215A/final_project")
+library(glmnet)
+library(doMC)
+library(doParallel)
+library(msgps)
+library(xtable)
+library(Hmisc)
+source("helperFunctions.R")
+load("fMRIdata.RData")
+
+# load data
+obs <- fit_feat
+resp <- resp_dat
+
+# obs and resp are divided into a training set (80%) and a validation set (20%)
+select.tr <- as.logical(sample(c(1,0), size=nrow(obs), replace=TRUE, prob = c(4/5, 1/5)))
+obs.train <- obs[select.tr, ]
+resp.train <- resp[select.tr, ]
+obs.val <- obs[!select.tr, ]
+resp.val <- resp[!select.tr, ]
+
+@
 
 \section{Introduction}
-Functional Magnetic Resonance Imaging (fMRI) is one of the tools used in neuroscience to decode brain activity. For this project, we looked at fMRI data provided by the Gallant Lab at UC Berkeley measuring activity in visual cortex. In an experiment, a subject is shown a series of randomly selected natural images and the fMRI response from his primary visual cortex is recorded. The fMRI response is recorded at the voxel level, where each voxel corresponds to a tiny volume of the visual cortex. For this project, we focused on two main goals. First, we predicted the voxel response to new images. Secondly, we interpreted the prediction models to understand how voxels respond to images.
-
-\section{Data}
+Functional Magnetic Resonance Imaging (fMRI) is one of the tools used in neuroscience to decode brain activity. For this project, we looked at fMRI data provided by the Gallant Lab at UC Berkeley measuring activity in visual cortex. In an experiment, a subject is shown a series of randomly selected natural images and the fMRI response from his primary visual cortex is recorded. The fMRI response is recorded at the voxel level, where each voxel corresponds to a tiny volume of the visual cortex. For this project, we focused on two main goals. First, we predicted the voxel response to new images. Secondly, we interpreted the prediction models to understand how voxels respond to images.\\\\
 fMRI data were recorded from 20 voxels while a subject viewed 1,750 natural images. Each image is a 128 by 128 pixel gray scale image, which can be represented by a vector of length $128^2 = 16,384$. Through a Gabor wavelet transformation each image was reduced to a vector of 10,921 coefficients. The prediction performance of my best model will be evaluated by looking at correlation scores against a validation set of 120 images.
 
 \section{Predict the voxel response}
@@ -193,8 +221,102 @@ At each step, the same set of indexed lambda as for the CV was tested from $\lam
 \bigskip
 The main strength of the ESCV criterion is its stability. I run several times my ESCV algorithm and unlike the CV algorithm I found about the same smoothing parameter each time. The other strength of ESCV is that it can be computed at the same time as the CV algorithm because it uses the same folds and steps as the CV algorithm. Thus, it gave us two criteria for the computation cost of one.
 
+<<results, include=TRUE, results="asis">>=
+AICc <- read.csv("AICcResult.csv")
+BIC <- read.csv("BICresult.csv")
+cvESCV <- read.csv("cvESCV.csv")
 
+AICc <- t(AICc)
+BIC <- t(BIC)
+cvESCV <- t(cvESCV)
+CV <- cvESCV[c("CV", "CV.1", "CV.2", "CV.3", "CV.4"), ]
+rownames(CV) <- rownames(BIC)
+ESCV <- cvESCV[c("ESCV", "ESCV.1", "ESCV.2", "ESCV.3", "ESCV.4"), ]
+rownames(ESCV) <- rownames(BIC)
+
+result <- cbind(AICc, BIC, CV, ESCV)
+corr <- round(result[, c(4, 9, 12, 17)], 2)
+df <- round(result[ , c(5, 10, 14, 19)], 1)
+colnames(corr) <- c("AICc", "BIC", "CV", "ESCV")
+colnames(df) <- c("AICc", "BIC", "CV", "ESCV") 
+Result <- cbind(corr, df)
+
+
+print(latex(Result, file = "", 
+            rowname = c("Ridge", " = 0.25", " = 0.5", " = 0.75", "LASSO"),
+            center = "center",
+            cgroup = c("Correlation", "Non null coefficient"),
+            colheads = rep(c("AICc", "BIC", "CV", "ESCV"), 2),
+      caption="Correlation on the validation set and number of non null coefficients",
+      label="corr.df"))
+
+@
+\pagebreak
 \section{How do voxels respond to images ?}
+
+For this part of the project, I chose to investigate on my best two models, GLM with LASSO regularization and GLM with elastic net parameter equals to 0.5. I also restricted my analysis to two voxels.
+
+
+\subsection{The choice of the models was appropriate}
+\subsubsection{Fit}
+First, I looked at the fit of my two models plotting the residuals against the fitted values for each of the two voxels. See Figure\ref{residuals} the residuals for the GLM with elastic net regularization and voxel 1. The plots for voxel 2 and GLM with LASSO regularization for voxels 1 and 2 were similar. One can see that the residuals were (approximately) independently distributed with a mean of zero. The histograms of the residuals for the two models showed the residuals were approximately normally distributed (data not shown). The residuals versus fitted values plots did not reveal outlier and showed that the choice of the two models was appropriate. Now, let's look at the stability of the models to confirm that.
+
+\begin{figure}
+<<residuals, echo=FALSE, message=FALSE, fig.width=8, fig.height=4, background=NA, warning=FALSE, cache=TRUE>>=
+# GML with elastic net regularization (alpha = 0.5)
+fit.5 <- cv.glmnet(x = obs.train, y = resp.train[ , 1], family = "gaussian", 
+                   nlambda = 100, parallel = TRUE, type.measure = "mse",
+                   nfolds = 10, alpha = 0.5)
+# GLM with LASSO regularization
+fit.lasso <- cv.glmnet(x = obs.train, y = resp.train[ , 1], family = "gaussian", 
+                       nlambda = 100, parallel = TRUE, type.measure = "mse",
+                       nfolds = 10, alpha = 1)
+
+# residuals for GLM with elastic net regularization
+res.5 <- predict(fit.5, newx = obs, s = "lambda.1se")[ , 1] - resp[ , 1]
+# plot residuals vs fitted values
+plot(predict(fit.5, newx = obs, s = "lambda.1se")[ , 1], res.5, 
+     ylab = "Residuals", xlab = "Fitted values",
+     col=ifelse(abs(res.5) >= 3, "red", "black"))
+abline(h = 0, col = "blue", lwd = 2)
+abline(h = 3, col = "red", lwd = 1)
+abline(h = -3, col = "red", lwd = 1)
+@
+\caption{Residuals against the fitted values for GLM with elastic net regularization (elastic net parameter is 0.5). The red points are the fitted values with absolute value of the residual up to 3.}
+\label{residuals}
+\end{figure}
+
+\subsubsection{Stability}
+To evaluate the stability of the models, correlation between the fitted values and observed values was calculated accross 1,000 bootstrap samples. Observations and responses were sampled with replacement and the coefficients from my two models were used to calculate the fitted values. See Figure\ref{stabModels} the boxplots of correlation calculated for 1,000 bootstrap samples. The mean of correlation for the two models was about 0.5 with a variance of about 0.01. The stability of the predicted results and of the models seemed to be good.\\\\
+The analysis of the residuals and stability of the models showed that the choice of these two models was appropriate.
+
+\begin{figure}
+<<stability model, echo=FALSE, message=FALSE, fig.width=8, fig.height=4, background=NA, warning=FALSE, cache=TRUE>>=
+# compute correlation between fitted and observed values accross 1000 bootstrap samples
+stability.model.5 <- stabModels(fit.5)
+stability.model.lasso <- stabModels(fit.lasso)
+par(mfrow = c(1, 2))
+#
+boxplot(stability.model.5, main = "Elastic net", ylim = c(0.44, 0.55))
+boxplot(stability.model.lasso, main = "LASSO", ylim = c(0.44, 0.55))
+par(mfrow = c(1, 1))
+@
+\caption{Boxplot of the correlation between the fitted and observed values accross 1000 bootstrap samples. On the left, boxplot for GLM with elastic net regularization. On the right, boxplot with GLM with LASSO regularization.}
+\label{stabModels}
+\end{figure}
+
+\subsection{Important features}
+Now that we are confident in our two models, we would like to know which features are important for prediction.\\\\
+
+I looked at the $\beta$ coefficients of the models. 107 non-null coefficients were overlapping between the models with elastic net and LASSO regularization. The fact that the features were present in both models could make us think that these features were important to predict the response to images.\\\\
+To be more confident in the non-null coefficients of the two models, I fitted GLM with elastic net and LASSO regularization accross 1,000 bootstrap samples of the observations and responses for the first two voxels. Over the 1,000 bootstraps, I counted the number of times a coefficient was non-null. Then, I extracted a list of the ten most frequently non-null coefficients in both of the models for voxel 1 and voxel 2 separately. All the features of these two lists were also present in the overlapping list of the coefficients for my two models (see paragraph above). For voxel 1 and voxel 2, the coefficients were non-null for respectively more than 75\% and 65\% of the bootstrap samples. Three of the top non-null coefficients overlapped between voxel 1 and voxel 2 (features 1145, 6076 and 10586). Performing this bootstrapping, we could do hypothesis testing on the estimated coefficients because we could compute the sample mean and sample standard error of the coefficients.\\\\
+Now that we have a criteria to select important features, let's look at the voxels response to images with only the most important features. For voxels 1 and 2, I selected nine features and plotted the real part of the selected Gabor wavelets. See Figure\ref{wavelets} where the axes represent the pixel location of the images. One can see that most of the wavelets were located in about the same part of the image. Biologically, we expect each voxel to respond only to a particular area of the visual receptive field\cite{escv}. 
+
+
+
+
+
+
 
 
 \printbibliography
