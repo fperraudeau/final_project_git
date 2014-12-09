@@ -51,26 +51,6 @@
 \usepackage[]{algorithm2e}
 \usepackage{hyperref}
 \usepackage[backend=bibtex]{biblatex}
-\bibliography{references}
- 
-\begin{filecontents*}{references.bib}
-@Manual{escv,
-    title = {Estimation Stability with Cross Validation},
-    author = {Lim C., Yu B.},
-    year = {2013}
-  }
-@Manual{glmnet,
-    title = {hh},
-    author = {gg},
-    year = {2008}
-  }
-@Manual{AICc,
-    title = {Model Selection and Multimodel Inference: A Practical Information-Theoretic Approach},
-    author = {Burnham, K. P.; Anderson, D. R.},
-    year = {2002}
-  }
-\end{filecontents*}
-
 \begin{document}
 \title{Final Project - fMRI Data\\
 Stat 215A, Fall 2014}
@@ -106,6 +86,14 @@ obs.val <- obs[!select.tr, ]
 resp.val <- resp[!select.tr, ]
 
 @
+This project can be reproduced from the github repository\\ \url{https://github.com/fperraudeau/final_project_git}.\\
+Make sure the read the README file before to start the reproduction of the project.\\\\
+
+\begin{abstract}
+In this project, I explored fMRI data provided by the Gallant Lab at UC Berkeley that measure the brain's response to visual images. The study was focused on the response of twenty voxels located in the visual cortex responsible for visual functions. A subject was shown 1,750 pictures while his brain activity was registered. Each image could be reduced to a vector of dimension 10,921. For this project, I focused on two main goals. The first is to predict the voxels response to new images by fitting GLM with ridge, elastic net (with elastic net parameters $\alpha$ of 0.25, 0.5 and 0.75) and LASSO regularizations. I compared these five models using the model selection criteria: AICc, BIC, CV and ESCV. The performance of my models was measured using the correlation between the fitted values and observed values on a data set untouched when the models were fitted. The two models with the highest correlation and the smallest number of features selected were LASSO and elastic net with $\alpha = 0.5$. Looking at the residuals and stability of my best two models, I had good confidence that the choice of these two models was appropriate. The second goal of this project was to interpret the prediction models and understand how voxels respond to images. To select the most important features, the two models were fitted accross 1,000 different bootstrap samples. Features with non-null coefficient for most of the bootstrap samples were selected for two voxels. The real part of these Gabor wavelets was plotted according to the pixel location on the image. For the two voxels chosen, voxels seemed to respond only to a particular area of the image. Finally, voxels were clustered according to their parameters of interest $\beta$. With five clusters, some voxels seemed to cluster according to their location in the brain. It means that some voxels with similar responses to images could be located close to each other.
+\end{abstract}
+
+\bigskip
 
 \section{Introduction}
 Functional Magnetic Resonance Imaging (fMRI) is one of the tools used in neuroscience to decode brain activity. For this project, we looked at fMRI data provided by the Gallant Lab at UC Berkeley measuring activity in visual cortex. In an experiment, a subject is shown a series of randomly selected natural images and the fMRI response from his primary visual cortex is recorded. The fMRI response is recorded at the voxel level, where each voxel corresponds to a tiny volume of the visual cortex. For this project, we focused on two main goals. First, we predicted the voxel response to new images. Secondly, we interpreted the prediction models to understand how voxels respond to images.\\\\
@@ -169,6 +157,7 @@ where k is the number of parameters in the model, n is the sample size and L is 
 To choose the smoothing parameter using Cross-validation (CV), I divided my training set (80\% of the data set with 1,750 images) into 10 folds. At each step, the models were fitted on nine folds with a set of 100 different values for the smoothing parameter $\lambda$. The range of the $\lambda$ tested was from 0 (unregularized solution) to $\lambda_{max}$ (the smallest $\lambda$ with all coefficients equal to zero). We will see in the section about ESCV why I chose to index the set of the smoothing parameters. The remaining fold not used to fit the models was used to check the performance of the models. As the performance indicator used by the Gallant lab is the correlation between the fitted values and the response values, I chose to use the correlation to measure the performance of my models on the validation sets. Once the ten steps were completed (in parallel using the R function foreach), the validation correlations were averaged over the steps and the voxels. For each of my five models, the smoothing parameters given the highest correlation between the fitted and the response values were chosen to be the best parameters for the models. Thus, for each of the five models, the best smoothing parameter was chosen. The steps of my algorithm are described below.\\\\
 
 Finally, the performance of the models was evaluated on the untouched validation set (20\% of the training set) using the correlation between the fitted and response values. Using CV as a model selection criteria, the best model was the one with the highest correlation.\\\\\\\\
+The strength of CV is to be able to find good solutions with less coefficients than AICc or BIC. However, I realized that performing several times my CV algorithm, I got different solutions each time. It was confirmed by the paper of Bin Yu and Chinghway Lim on ESCV\cite{escv}, CV can lead to models that are unstable in high-dimensions, and consequently not suited for reliable interpretation.\\\\
 
 \textbf{Summary of my algorithm for CV}\\\\
 \begin{algorithm}[H]
@@ -187,7 +176,7 @@ Finally, the performance of the models was evaluated on the untouched validation
 7) Choose the model with the highest correlation
 \end{algorithm}
 \bigskip
-The strength of CV is to be able to find good solutions with less coefficients than AICc or BIC. However, I realized that performing several times my CV algorithm, I got different solutions each time. It was confirmed by the paper of Bin Yu and Chinghway Lim on ESCV\cite{escv}, CV can lead to models that are unstable in high-dimensions, and consequently not suited for reliable interpretation.\\\\
+
 
 
 \subsubsection{Estimation Stability with Cross-Validation}
@@ -197,8 +186,8 @@ $$ ES[\lambda] = \frac{\widehat{Var}(\widehat{Y}[\lambda])}{\| \overline{\wideha
 with \\
 $$\widehat{Var}(\widehat{Y}[\lambda]) = \frac{1}{V} \sum_{k=1}^V \|\widehat{Y}[k; \lambda] - \overline{\widehat{Y}}[\lambda] \|_2^2\ \ \ \ \ \ \ \ and\ \ \ \ \ \ \ \overline{\widehat{Y}}[\lambda] = \frac{1}{V} \sum_{i=1}^V \widehat{Y}[i; \lambda]$$\\\\
 
-At each step, the same set of indexed lambda as for the CV was tested from $\lambda = 0$ to $\lambda_{max}$. It is important to keep the same indexation of $\lambda$ at each step of the ESCV algorithm because the L1-norm of the unregularized solution corresponding to the saturated fit can vary a lot depending on the folds selected. Because it was easiest to implement with the R glmnet package, I chose to represent the regularization parameter with $\lambda$ whereas the regularization parameter chosen in Bin Yu's paper\cite{escv} was $\tau = \| \widehat{\beta}(\lambda) \|_1$. I also implemented the ESCV algorithm for ridge and elastic net regularizations, not implemented in Bin Yu's paper. It seems to perform as well as for the LASSO regularization.
- 
+At each step, the same set of indexed lambda as for the CV was tested from $\lambda = 0$ to $\lambda_{max}$. It is important to keep the same indexation of $\lambda$ at each step of the ESCV algorithm because the L1-norm of the unregularized solution corresponding to the saturated fit can vary a lot depending on the folds selected. Because it was easiest to implement with the R glmnet package, I chose to represent the regularization parameter with $\lambda$ whereas the regularization parameter chosen in Bin Yu's paper\cite{escv} was $\tau = \| \widehat{\beta}(\lambda) \|_1$. I also implemented the ESCV algorithm for ridge and elastic net regularizations, not implemented in Bin Yu's paper. It seems to perform as well as for the LASSO regularization.\\\\
+The main strength of the ESCV criterion is its stability. I run several times my ESCV algorithm and unlike the CV algorithm I found about the same smoothing parameter each time. The other strength of ESCV is that it can be computed at the same time as the CV algorithm because it uses the same folds and steps as the CV algorithm. Thus, it gave us two criteria for the computation cost of one.\\
  
 \bigskip
 \textbf{Summary of my algorithm for ESCV}\\\\
@@ -218,8 +207,7 @@ At each step, the same set of indexed lambda as for the CV was tested from $\lam
 }
 7) Choose the model with the highest correlation 
 \end{algorithm}
-\bigskip
-The main strength of the ESCV criterion is its stability. I run several times my ESCV algorithm and unlike the CV algorithm I found about the same smoothing parameter each time. The other strength of ESCV is that it can be computed at the same time as the CV algorithm because it uses the same folds and steps as the CV algorithm. Thus, it gave us two criteria for the computation cost of one.
+
 
 <<results, include=TRUE, results="asis">>=
 AICc <- read.csv("AICcResult.csv")
@@ -309,16 +297,82 @@ par(mfrow = c(1, 1))
 Now that we are confident in our two models, we would like to know which features are important for prediction.\\\\
 
 I looked at the $\beta$ coefficients of the models. 107 non-null coefficients were overlapping between the models with elastic net and LASSO regularization. The fact that the features were present in both models could make us think that these features were important to predict the response to images.\\\\
-To be more confident in the non-null coefficients of the two models, I fitted GLM with elastic net and LASSO regularization accross 1,000 bootstrap samples of the observations and responses for the first two voxels. Over the 1,000 bootstraps, I counted the number of times a coefficient was non-null. Then, I extracted a list of the ten most frequently non-null coefficients in both of the models for voxel 1 and voxel 2 separately. All the features of these two lists were also present in the overlapping list of the coefficients for my two models (see paragraph above). For voxel 1 and voxel 2, the coefficients were non-null for respectively more than 75\% and 65\% of the bootstrap samples. Three of the top non-null coefficients overlapped between voxel 1 and voxel 2 (features 1145, 6076 and 10586). Performing this bootstrapping, we could do hypothesis testing on the estimated coefficients because we could compute the sample mean and sample standard error of the coefficients.\\\\
-Now that we have a criteria to select important features, let's look at the voxels response to images with only the most important features. For voxels 1 and 2, I selected nine features and plotted the real part of the selected Gabor wavelets. See Figure\ref{wavelets} where the axes represent the pixel location of the images. One can see that most of the wavelets were located in about the same part of the image. Biologically, we expect each voxel to respond only to a particular area of the visual receptive field\cite{escv}. 
+To be more confident in the non-null coefficients of the two models, I fitted GLM with elastic net and LASSO regularization accross 1,000 bootstrap samples of the observations and responses for the first two voxels. Over the 1,000 bootstraps, I counted the number of times a coefficient was non-null. Then, I extracted a list of the ten most frequently non-null coefficients in both of the models for voxel 1 and voxel 2 separately. All the features of these two lists were also present in the overlapping list of the coefficients for my two models (see paragraph above) making me more confident in my results. For voxel 1 and voxel 2, the coefficients were non-null for respectively more than 75\% and 65\% of the bootstrap samples. Three of the top non-null coefficients overlapped between voxel 1 and voxel 2 (features 1145, 6076 and 10586). Performing this bootstrapping, we could do hypothesis testing on the estimated coefficients because we could compute the sample mean and sample standard error of the coefficients.\\\\
+Now that we have a criteria to select important features, let's look at the voxels response to images with only the most important features for both of my models. For voxels 1 and 2, I selected the first nine features with the most frequently non-null coefficient in the 1000 bootstrap samples and plotted the real part of the selected Gabor wavelets. See Figure\ref{wavelets1} and Figure\ref{wavelets2} where the axes represent the pixel location of the images for respectively voxel 1 and voxel 2. One can see that most of the wavelets were located in about the same part of the image. Biologically, we expect each voxel to respond only to a particular area of the visual receptive field\cite{1}. Thus, my models seemed to be appropriate from a biological point of view. More time would be needed to look at the other eighteen voxels and understand why voxels focus their response on a part of the images.
+
+\begin{figure}
+\centering
+\includegraphics[scale=0.3]{wavelets1.png}
+\caption{Real part of the nine most important wavelets in the response to images for Voxel 1. The most important wavelets chosen are the wavelets with the most frequently non-null coefficients after 1000 bootstrap samples. The axes represent the pixel location of the images.}
+\label{wavelets1}
+\end{figure}
+
+
+\begin{figure}
+\centering
+\includegraphics[scale=0.3]{wavelets2.png}
+\caption{Real part of the nine most important wavelets in the response to images for Voxel 2. The most important wavelets chosen are the wavelets with the most frequently non-null coefficients after 1000 bootstrap samples. The axes represent the pixel location of the images.}
+\label{wavelets2}
+\end{figure}
+
+
+
+\subsection{Clustering the voxels}
+Another approach to interpret the response of voxels to images was to study the relation between the responses of the twenty voxels and the location of these voxels in the brain. Here I clustered voxels that seem to have similar responses to images. Fitting my models to the responses of the twenty voxels, each voxel got a different parameter of interest $\beta$ with a different regularization parameter $\lambda$. I used the parameters of interest of the twenty voxels for the clustering. The idea was that if voxels have similar parameters of interest, they might have similar responses to images. Then, I wondered if voxels having similar responses were located close to each other in the brain. We could think that similar functions of the visual cortex are executed by voxels that are close to each other. For example, we could think that voxels on the left of the brain are responsible for the analysis of the left part of images and the right part of the brain take care of the right part of images.\\\\
+To cluster the twenty voxels, I used the R function kmeans with different numbers of center from two to nine. When the number of clusters was three, all the voxels clustered in the same cluster except for voxels four and nine clustering separately. Thus, one can think that these two voxels have the most different responses compared to the other voxels. It could be interesting to study these two voxels with more care. However, this clustering with three clusters did not seem to be the most interesting clustering because there was no relation between the clusters and the location of the voxels.\\\\
+To infer the best number of clusters, I used subject matter selection looking at the location of the voxels in the visual cortex. I colored the voxels according to the cluster they belonged to. I found that five clusters was the best number of clusters if we are interested in the location of the voxels in the brain. See Figure\ref{cluster}. With five clusters, five voxels close to each other in the visual cortex clustred together. Three other voxels clustered separately and were also close to the five voxels clustering together. The voxels we studied in this project were arranged in kind of a circle shape (see Figure\ref{cluster}). These eight voxels that seemed interesting (the five voxels in the same cluster and the three other clustering separateley) were located in the middle and on one side of the twenty voxels we studied in this project. This could suggest that these voxels have different functions than the voxels in the periphery. Further investigation would be needed to better understand the responses of voxels to images.\\\\
+
+\begin{figure}[ht]
+\centering
+\begin{minipage}[b]{0.35\linewidth}
+  \includegraphics[width=4.8cm]{clusterVoxel2.png}
+\end{minipage}
+\quad
+\begin{minipage}[b]{0.25\linewidth}
+  \includegraphics[width=5cm]{clusterVoxel1.png}
+\end{minipage}
+\caption{Location of the twenty voxels in the visual cortex. The five different colors correspond to the clusters the voxels belong. The two images correspond to the same figure but with different views.}
+\label{cluster}
+\end{figure}
+
+
+\section*{Conclusion}
+My best models were the GLM with elastic net (elastic net parameter $\alpha = 0.5$) and LASSO regularizations. Looking at the residuals and stability of these two models, I have good confidence that the choice of my models was appropriate. Selecting the most important features using 1,000 bootstrap samples, it seemed that the selected features focused on a particular area of the images. This result matches what is biologically expected. Finally, I clustered the voxels according to their response to images. With five clusters, I found that some voxels with similar response to images were located close to each other. It could mean that voxels with similar functions are located in the same area of the visual cortex. Further investigation would be needed to better understand how voxels respond to images.\\
 
 
 
 
 
+\begin{thebibliography}{9}
 
+\bibitem{escv}
+  Lim C., Yu B.,
+  \textit{Estimation Stability with Cross Validation},
+  2013
+  
+\bibitem{glmnet}
+  blabla,
+  \textit{blabla},
+  2008
 
+\bibitem{AICc}
+  Burnham, K. P.; Anderson, D. R., 
+  \textit{Model Selection and Multimodel Inference: A Practical Information-Theoretic Approach},
+  2002
 
-\printbibliography
+\bibitem{4}
+  Smith M.T, 
+  \textit{Mechanism of Benzene-induced Leukemia: A Hypothesis and Speculations on the Causes of Leukemia}, 
+  Environmental Health Perspectives, 
+  1996
+  
+\bibitem{5}
+  Cherepanova V.V, Vladimirova S.G, Tarassova L.N, Mustafina G.N, Silina N.N, 
+  \textit{Hemostasis in patients with acute myeloblastic leukemia (AML) manifestation}, 
+  Cellular Therapy and Transplantation (CTT), 
+  2009
+
+  
+\end{thebibliography}
 \end{document}
 
