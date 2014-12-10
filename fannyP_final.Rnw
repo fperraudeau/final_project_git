@@ -71,7 +71,7 @@ library(doParallel)
 library(msgps)
 library(xtable)
 library(Hmisc)
-source("helperFunctions.R")
+source("my_library.R")
 load("fMRIdata.RData")
 
 # load data
@@ -96,14 +96,16 @@ In this project, I explored fMRI data provided by the Gallant Lab at UC Berkeley
 \bigskip
 
 \section{Introduction}
-Functional Magnetic Resonance Imaging (fMRI) is one of the tools used in neuroscience to decode brain activity. For this project, we looked at fMRI data provided by the Gallant Lab at UC Berkeley measuring activity in visual cortex. In an experiment, a subject is shown a series of randomly selected natural images and the fMRI response from his primary visual cortex is recorded. The fMRI response is recorded at the voxel level, where each voxel corresponds to a tiny volume of the visual cortex. For this project, we focused on two main goals. First, we predicted the voxel response to new images. Secondly, we interpreted the prediction models to understand how voxels respond to images.\\\\
+Functional Magnetic Resonance Imaging (fMRI) is one of the tools used in neuroscience to decode brain activity. For this project, we looked at fMRI data provided by the Gallant Lab at UC Berkeley measuring activity in visual cortex. In an experiment, a subject is shown a series of randomly selected natural images and the fMRI response from his primary visual cortex is recorded. The fMRI response is recorded at the voxel level, where each voxel corresponds to a tiny volume of the visual cortex. For this project, we focused on two main goals. First, we predicted the voxel response to new images. Secondly, we interpreted the prediction models to understand how voxels respond to images.\\
+\pagebreak
 fMRI data were recorded from 20 voxels while a subject viewed 1,750 natural images. Each image is a 128 by 128 pixel gray scale image, which can be represented by a vector of length $128^2 = 16,384$. Through a Gabor wavelet transformation each image was reduced to a vector of 10,921 coefficients. The prediction performance of my best model will be evaluated by looking at correlation scores against a validation set of 120 images.
 
 \section{Predict the voxel response}
-By modeling each of the 20 voxel's response to the 1,750 images of the training set, I build models that can predict the response to new images. The power of these models is that the 120 images in the validation set are not part of the training set. To evaluate the performance of my best model I will predict responses of the voxels to totally new images.
+By modeling each of the 20 voxels' response to 1,750 images of the training set, I built models that can predict the response to new images. The power of these models is that the 120 images in the validation set are not part of the training set. To evaluate the performance of my best model I will predict voxels response to totally new images.\\\\
+One of the simplest prediction method would be to use ordinary least squares estimates. As our data set had high dimensions, least squares would predict the responses with low bias but high variance making this method a bad prediction method. Moreover, it would be difficult to interpret the results of a least squares method because the number of features would not be reduced. In order to see the big picture and reduce prediction error, we want to reduce the number of predictors and choose the features that have the strongest influence on the response. Reducing the number of features is likely to increase the bias but at the same time will probably reduce the variance. To reduce the number of features, I fitted Generalized Linear Models (GLM) with different regularizations.
 
 \subsection{Partition of the data}
-To predict the voxel response to new images, I used the training set provided for the project (with 1,750 images). The validation set with the 120 new images was not used for this part. As suggested in the tasks, the size of the data set is large so it is difficult to perform cross-validation on the entire training set. Thus, I divided the training set into two parts. 80\% of the training set was used to train the models while the remaining 20\% was used to check the performance of the models. See Figure\ref{dataset}.\\\\
+To predict the voxel response to new images, I used the training set provided for the project (with 1,750 images). The validation set with the 120 new images was not used for this part. As suggested in the tasks, the size of the data set is large so it is difficult to perform cross-validation on the entire training set. Thus, inspired by section 7.2 of Hastie book\cite{2}, I divided the training set into two parts. 80\% of the training set was used to train the models while the remaining 20\% was used to check the performance of the models. See Figure\ref{dataset}.\\\\
 
 \begin{figure}
 \centering
@@ -111,9 +113,9 @@ To predict the voxel response to new images, I used the training set provided fo
 \caption{Partition of the data}
 \label{dataset}
 \end{figure}
-
+\pagebreak
 \subsection{GLM with Ridge, Elastic Net and Lasso regularization}
-The training set was fitted to generalized linear models (GLM) with ridge, elastic net and Least Absolute Shrinkage and Selection Operator (LASSO) regularizations using Gaussian family models. Thus, for a response with only one voxel the objective function to minimize over $\beta$ was\\
+The training set was fitted to GLM with ridge, elastic net and Least Absolute Shrinkage and Selection Operator (LASSO) regularizations using Gaussian family models. Thus, for a response with only one voxel the objective function to minimize over $\beta$ was\\
 
 $$\frac{1}{2N} \sum_{i=1}^{N}\ (y_i - \beta_0 - x_i^T \beta)^2\  +\  \lambda\  [\  \frac{(1- \alpha)}{2} \| \beta \|_2^2 + \alpha \| \beta \|_1\ ] $$\\
 
@@ -126,7 +128,7 @@ $$\frac{1}{2N} \sum_{i=1}^{N}\| (y_i - \beta_0 - \beta^T x_i) \|_F^2\  +\  \lamb
 where $\beta_j$ is the jth row of the p by K matrix $\beta$. I replaced the absolute penalty on each single coefficient by a group lasso penalty on each K-vector $\beta_j$ for a single predictor $x_j$. It is known that the ridge penalty shrinks the coefficients of correlated predictors towards each other while the LASSO tends to pick one of them and discard the others. The elastic-net penalty mixes these two. An $\alpha = 0.5$ tends to select the groups in or out together. The small elastic net parameters perform much like the ridge regularization whereas big elastic net parameters perform more like a LASSO regularization.\\
 
 
-The R function glmnet from the package glmnet\cite{glmnet} was used to fit the linear models with ridge ($\alpha = 0$), elastic net with $\alpha = (0.25,\  0.5,\  0.75)$ and LASSO ($\alpha = 1$) regularizations. The option family = "mgaussian" was used to fit multi- response linear regression for our 20 voxels at a time. 
+The R function glmnet from the package glmnet\cite{3} was used to fit the linear models with ridge ($\alpha = 0$), elastic net with $\alpha = (0.25,\  0.5,\  0.75)$ and LASSO ($\alpha = 1$) regularizations. The option family = "mgaussian" was used to fit multi- response linear regression for our 20 voxels at a time. 
 
 
 \subsection{Model selection criteria}
@@ -144,7 +146,7 @@ Akaike Information Criterion (AIC) is\\
 $$AIC = 2k - 2\ln(L)$$\\
 where k is the number of parameters in the model, and L is the maximized value of the likelihood function. AIC not only rewards goodness of fit, but also includes a penalty that is an increasing function of the number of estimated parameters. The penalty discourages overfitting that is very likely with our 10,921 initial parameters. It can tell nothing about the quality of the model in an absolute sense (if all the candidate models fit poorly, AIC will not give any warning of that), but can be used to compare different models. \\\\
 
-When the number of parameters if large compared to the number of samples, it is recommended to use the Akaike Information Criterion with a correction (AICc) instead of the AIC\cite{AICc}. AICc is\\
+When the number of parameters if large compared to the number of samples, it is recommended to use the Akaike Information Criterion with a correction (AICc) instead of the AIC. AICc is\\
 $$AICc = AIC + \frac{2k (k + 1)}{n - k - 1}$$\\
 where k is the number of parameters and n is the sample size. Thus, AICc is AIC with a greater penalty for extra parameters because our data set has $n << k$. The best model chosen according to the AICc was the one with the minimum AICc value.
 
@@ -152,12 +154,11 @@ where k is the number of parameters and n is the sample size. Thus, AICc is AIC 
 To penalize even more strongly the number of parameters, I also used the Bayesian Information Criterion (BIC)\\
 $$BIC = k[\ln(n) - ln(2\pi)] - 2\ln(L)$$\\
 where k is the number of parameters in the model, n is the sample size and L is the maximized value of the likelihood function. The idea behind BIC is the same as the one behind AICc but with a penalty term larger in BIC than in AICc.
-
+\bigskip
 \subsubsection{Cross-Validation}
-To choose the smoothing parameter using Cross-validation (CV), I divided my training set (80\% of the data set with 1,750 images) into 10 folds. At each step, the models were fitted on nine folds with a set of 100 different values for the smoothing parameter $\lambda$. The range of the $\lambda$ tested was from 0 (unregularized solution) to $\lambda_{max}$ (the smallest $\lambda$ with all coefficients equal to zero). We will see in the section about ESCV why I chose to index the set of the smoothing parameters. The remaining fold not used to fit the models was used to check the performance of the models. As the performance indicator used by the Gallant lab is the correlation between the fitted values and the response values, I chose to use the correlation to measure the performance of my models on the validation sets. Once the ten steps were completed (in parallel using the R function foreach), the validation correlations were averaged over the steps and the voxels. For each of my five models, the smoothing parameters given the highest correlation between the fitted and the response values were chosen to be the best parameters for the models. Thus, for each of the five models, the best smoothing parameter was chosen. The steps of my algorithm are described below.\\\\
-
-Finally, the performance of the models was evaluated on the untouched validation set (20\% of the training set) using the correlation between the fitted and response values. Using CV as a model selection criteria, the best model was the one with the highest correlation.\\\\\\\\
-The strength of CV is to be able to find good solutions with less coefficients than AICc or BIC. However, I realized that performing several times my CV algorithm, I got different solutions each time. It was confirmed by the paper of Bin Yu and Chinghway Lim on ESCV\cite{escv}, CV can lead to models that are unstable in high-dimensions, and consequently not suited for reliable interpretation.\\\\
+To choose the smoothing parameter using Cross-validation (CV), I divided my training set (80\% of the data set with 1,750 images) into 10 folds. At each step, the models were fitted on nine folds with a set of 100 different values for the smoothing parameter $\lambda$. The range of the $\lambda$ tested was from 0 (unregularized solution) to $\lambda_{max}$ (the smallest $\lambda$ with all coefficients equal to zero). We will see in the section about ESCV why I chose to index the set of the smoothing parameters. The remaining fold not used to fit the models was used to check the performance of the models. As the performance indicator used by the Gallant lab is the correlation between the fitted values and the response values, I chose to use the correlation to measure the performance of my models on the validation sets. Once the ten steps were completed (in parallel using the R function foreach), the validation correlations were averaged over the steps and the voxels. For each of my five models, the smoothing parameters given the highest correlation between the fitted and the response values were chosen to be the best parameters for the models. Thus, for each of the five models, the best smoothing parameter was chosen. The steps of my algorithm are described below.\\\\\\\\\\
+Finally, the performance of the models was evaluated on the untouched validation set (20\% of the training set) using the correlation between the fitted and response values. Using CV as a model selection criteria, the best model was the one with the highest correlation.\\\\
+The strength of CV is to be able to find good solutions with less coefficients than AICc or BIC. However, I realized that performing several times my CV algorithm, I got different solutions each time. It was confirmed by the paper of Bin Yu and Chinghway Lim on ESCV\cite{1}, CV can lead to models that are unstable in high-dimensions, and consequently not suited for reliable interpretation.\\\\
 
 \textbf{Summary of my algorithm for CV}\\\\
 \begin{algorithm}[H]
@@ -180,13 +181,13 @@ The strength of CV is to be able to find good solutions with less coefficients t
 
 
 \subsubsection{Estimation Stability with Cross-Validation}
-The idea of the model selection criteria ESCV\cite{escv} was to be able to find stable solution for the smoothing parameter in high-dimensions data set. To do so the algorithm was nearly the same as the CV algorithm. The training set was divided into V folds. The models were fitted to V - 1 folds of the training set and the performance was checked on the remaining fold. The difference with the CV algorithm was that instead of checking the performance of the fitted model using correlation, the performance was evaluated using the ES metric defined in Bin Yu's paper\cite{escv}\\
+The idea of the model selection criteria ESCV\cite{1} was to be able to find stable solution for the smoothing parameter in high-dimensions data set. To do so the algorithm was nearly the same as the CV algorithm. The training set was divided into V folds. The models were fitted to V - 1 folds of the training set and the performance was checked on the remaining fold. The difference with the CV algorithm was that instead of checking the performance of the fitted model using correlation, the performance was evaluated using the ES metric defined in Bin Yu's paper\cite{1}\\
 $$ ES[\lambda] = \frac{\widehat{Var}(\widehat{Y}[\lambda])}{\| \overline{\widehat{Y}}[\lambda] \|_2^2}$$
 
 with \\
 $$\widehat{Var}(\widehat{Y}[\lambda]) = \frac{1}{V} \sum_{k=1}^V \|\widehat{Y}[k; \lambda] - \overline{\widehat{Y}}[\lambda] \|_2^2\ \ \ \ \ \ \ \ and\ \ \ \ \ \ \ \overline{\widehat{Y}}[\lambda] = \frac{1}{V} \sum_{i=1}^V \widehat{Y}[i; \lambda]$$\\\\
 
-At each step, the same set of indexed lambda as for the CV was tested from $\lambda = 0$ to $\lambda_{max}$. It is important to keep the same indexation of $\lambda$ at each step of the ESCV algorithm because the L1-norm of the unregularized solution corresponding to the saturated fit can vary a lot depending on the folds selected. Because it was easiest to implement with the R glmnet package, I chose to represent the regularization parameter with $\lambda$ whereas the regularization parameter chosen in Bin Yu's paper\cite{escv} was $\tau = \| \widehat{\beta}(\lambda) \|_1$. I also implemented the ESCV algorithm for ridge and elastic net regularizations, not implemented in Bin Yu's paper. It seems to perform as well as for the LASSO regularization.\\\\
+At each step, the same set of indexed lambda as for the CV was tested from $\lambda = 0$ to $\lambda_{max}$. It is important to keep the same indexation of $\lambda$ at each step of the ESCV algorithm because the L1-norm of the unregularized solution corresponding to the saturated fit can vary a lot depending on the folds selected. Because it was easiest to implement with the R glmnet package, I chose to represent the regularization parameter with $\lambda$ whereas the regularization parameter chosen in Bin Yu's paper\cite{1} was $\tau = \| \widehat{\beta}(\lambda) \|_1$. I also implemented the ESCV algorithm for ridge and elastic net regularizations, not implemented in Bin Yu's paper. It seems to perform as well as for the LASSO regularization.\\\\
 The main strength of the ESCV criterion is its stability. I run several times my ESCV algorithm and unlike the CV algorithm I found about the same smoothing parameter each time. The other strength of ESCV is that it can be computed at the same time as the CV algorithm because it uses the same folds and steps as the CV algorithm. Thus, it gave us two criteria for the computation cost of one.\\
  
 \bigskip
@@ -208,6 +209,7 @@ The main strength of the ESCV criterion is its stability. I run several times my
 7) Choose the model with the highest correlation 
 \end{algorithm}
 
+\subsection{Results}
 
 <<results, include=TRUE, results="asis">>=
 AICc <- read.csv("AICcResult.csv")
@@ -227,11 +229,11 @@ corr <- round(result[, c(4, 9, 12, 17)], 2)
 df <- round(result[ , c(5, 10, 14, 19)], 1)
 colnames(corr) <- c("AICc", "BIC", "CV", "ESCV")
 colnames(df) <- c("AICc", "BIC", "CV", "ESCV") 
-Result <- cbind(corr, df)
+Alpha <- cbind(corr, df)
 
 
-print(latex(Result, file = "", 
-            rowname = c("Ridge", " = 0.25", " = 0.5", " = 0.75", "LASSO"),
+print(latex(Alpha, file = "", 
+            rowname = c("0 (Ridge)", "0.25", "0.5", "0.75", "1 (LASSO)"),
             center = "center",
             cgroup = c("Correlation", "Non null coefficient"),
             colheads = rep(c("AICc", "BIC", "CV", "ESCV"), 2),
@@ -239,6 +241,24 @@ print(latex(Result, file = "",
       label="corr.df"))
 
 @
+
+\subsubsection{Comparison between the regularization methods}
+All the models with regularization parameters try to minimize a penalized a sum of residuals, but using different penalization. As the sample size n of our data set is small compared to the number of features, LASSO should not perform well. Indeed, LASSO selects at most n variables before it saturates. Thus, if in our data set there are more than 1,750 important features, then LASSO would not be appropriate. Looking at the results of GLM with ridge and elastic net regularizations, it seemed than the number of important features is not higher than 1,750. So this restriction of the LASSO is not a real problem here.  However, there is another reason why the LASSO should perform poorly. The Gabor wavelets of the observation matrix are correlated, even highly correlated for some of the features. One of the properties of LASSO is that from a group of correlated features it tends to select one from the group and does not care which one is selected. We would expect that our model would automatically select groups of correlated features and give similar coefficients to similar features. On the contrary, elastic net regularization tends to take into account the grouping of correlated features selecting the groups in and out of the model.\\\\
+
+
+
+
+\subsubsection{Comparison between the model selction criteria}
+Both AICc and BIC are methods to penalize the number of features. When the number of samples n is large, AICc and BIC produce generally different results because BIC applies a much larger penalty for complex models and hence leads to simpler models than AICc. Thus, for n large BIC usually underfits whereas AICc presents more the danger that it might overfit\cite{4}. It can be seen looking at how AICc and BIC penalize free parameters (2k for AICc and kln(n) for BIC). However, here the number of images p (1,750) is small compared to the number of features (10,921) and there is no big different between the results from AICc and BIC. See results table. For such dimensions (with p >> n), it was not surprising to find the similar results for the two methods.\\\\
+Stone\cite{5} showed that the AIC (or BIC) and cross-validation are asymptotically equivalent. Here, the number of samples is not large enough to consider that we have an approximation of asymptotical results. For my computations, cross-validation got slightly better results in term of prediction with slightly higher correlations for CV than for AICc and BIC. On the contrary, the number of features selected by CV was higher than with AICc and BIC. I did not really understood why.\\\\
+According to Bin Yu's paper\cite{1}, ESCV should have about the same prediction power as CV and should select simpler and more reliable models. However, with my implementation of the ESCV algorithm, I got slightly better prediction results with the CV than with the ESCV method. It is likely to be due to my implementation of the ES metric which might be slightly different from the one in Bin Yu's paper. The number of selected features was slightly smaller for the ESCV method than for CV confirming the results in Bin Yu's paper. 
+
+
+\subsubsection{Model selected}
+To choose the best two models, I looked at the different model selection criteria and took into account both the prediction power (ie. the higher correlation between the observed and fitted values) and the number of features selected. Thus, for further investigation, I chose the GLM with LASSO and elastic net parameter $\alpha = 0.5$ regularizations.
+
+
+
 \pagebreak
 \section{How do voxels respond to images ?}
 
@@ -345,32 +365,34 @@ My best models were the GLM with elastic net (elastic net parameter $\alpha = 0.
 
 \begin{thebibliography}{9}
 
-\bibitem{escv}
-  Lim C., Yu B.,
+\bibitem{1}
+  Lim Chinghway, Yu Bin,
   \textit{Estimation Stability with Cross Validation},
   2013
   
-\bibitem{glmnet}
-  blabla,
-  \textit{blabla},
-  2008
-
-\bibitem{AICc}
-  Burnham, K. P.; Anderson, D. R., 
-  \textit{Model Selection and Multimodel Inference: A Practical Information-Theoretic Approach},
-  2002
+\bibitem{2}
+  Trevor Hastie, Robert Tibshirani, and Jerome Friedman, 
+  \textit{The Elements of Statistical Learning}, 
+  Springer Series in Statistics Springer New York Inc.,
+  2001
+  
+\bibitem{3}
+  Jerome Friedman, Trevor Hastie, Robert Tibshirani,
+  \textit{Regularization Paths for Generalized Linear Models via Coordinate Descent},
+  Journal of Statistical Software
+  2010
 
 \bibitem{4}
-  Smith M.T, 
-  \textit{Mechanism of Benzene-induced Leukemia: A Hypothesis and Speculations on the Causes of Leukemia}, 
-  Environmental Health Perspectives, 
-  1996
-  
+  Burnham, K. P.; Anderson, D. R.,
+  \textit{Model Selection and Multimodel Inference: A Practical Information-Theoretic Approach},
+  Springer-Verlag,
+  2002
+
 \bibitem{5}
-  Cherepanova V.V, Vladimirova S.G, Tarassova L.N, Mustafina G.N, Silina N.N, 
-  \textit{Hemostasis in patients with acute myeloblastic leukemia (AML) manifestation}, 
-  Cellular Therapy and Transplantation (CTT), 
-  2009
+  M. Stone,
+  \textit{An Asymptotic Equivalence of Choice of Model by Cross-Validation and Akaike's Criterion},
+  Journal of the Royal Statistical Society,
+  1997
 
   
 \end{thebibliography}

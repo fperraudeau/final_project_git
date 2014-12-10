@@ -121,10 +121,10 @@ cvResult <- function(obs.train, resp.train, obs.val, resp.val, alpha){
                              foldid = foldid, alpha = alpha[i])
     # lambda.1se is the largest value of lambda such that error is within 1 
     # standard error of the minimum lambda. 
-    lambda.min <- cvfit$lambda.min
-    index.lambda.min <- which(cvfit$lambda %in% cvfit$lambda.min)
+    lambda.1se <- cvfit$lambda.1se
+    index.lambda.1se <- which(cvfit$lambda %in% cvfit$lambda.1se)
     # number of non-zero coefficients at lambda.1se
-    non.zero <- cvfit$nzero[index.lambda.min]
+    non.zero <- cvfit$nzero[index.lambda.1se]
     names(non.zero) <- NULL
     # mean predicted error and standard deviation of the predicted error
     est.err <- c(cvfit$cvm[index.lambda.min], cvfit$cvsd[index.lambda.min])
@@ -235,7 +235,7 @@ predValidation <- function(fit, lambda){
   pred.err <- mean(apply((predict(fit, obs.val, s = lambda)[, ,1] - 
                             resp.val)^2, 2, sum))
   return(c(Lambda = lambda, Correlation = corr, 
-           Prediction = pred.err, DF = fit$df))  
+           Prediction = pred.err))  
 }
 
 
