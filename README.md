@@ -26,6 +26,7 @@ Make sure that all the following files are in the same folder. You should at lea
 8. stability.featres.txt
 9. my_library.R
 10. models.R
+11. predv1_fanny.txt
 
 You will also have tables in .csv format that I have generated on the SCF cluster. 
 You may want to backup these tables in a different folder so they won't be overwritten.
